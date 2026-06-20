@@ -1,4 +1,4 @@
-# NETS Wrapped — PolyFinTech100 2026 Demo
+# NETS (Circles + Roam + Wrapped) — PolyFinTech100 2026 Demo
 
 A mobile-first hackathon demo featuring two new NETS app features:
 - **NETS Wrapped** — Spotify-Wrapped-style animated spend recap
