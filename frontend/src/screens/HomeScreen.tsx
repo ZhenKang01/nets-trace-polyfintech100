@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { NetsLogo } from "../components/NetsLogo";
 import { NetsCard } from "../components/NetsCard";
 import { NetsFlashPayCard } from "../components/NetsFlashPayCard";
 import { UserSwitcher } from "../components/UserSwitcher";
 import { useUser } from "../context/UserContext";
 
-const API = "http://localhost:8000";
+const API = "http://localhost:8001";
 
 interface Transaction {
   id: string;
@@ -44,12 +45,17 @@ export function HomeScreen() {
   const { userId } = useUser();
   const navigate = useNavigate();
   const [recent, setRecent] = useState<Transaction[]>([]);
+  const [roamActive, setRoamActive] = useState<{ location: string; flag: string } | null>(null);
 
   useEffect(() => {
     fetch(`${API}/users/${userId}/transactions?limit=5`)
       .then((r) => r.json())
       .then(setRecent)
       .catch(() => {});
+    fetch(`${API}/users/${userId}/roam`)
+      .then((r) => r.json())
+      .then((d) => setRoamActive(d.is_traveling ? { location: d.location, flag: d.flag } : null))
+      .catch(() => setRoamActive(null));
   }, [userId]);
 
   return (
@@ -68,6 +74,30 @@ export function HomeScreen() {
           </button>
         </div>
       </div>
+
+      {/* Roam active alert */}
+      <AnimatePresence>
+        {roamActive && (
+          <motion.button
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden w-full text-left"
+            onClick={() => navigate("/roam")}
+          >
+            <div className="flex items-center gap-3 px-4 py-3" style={{ background: "linear-gradient(90deg, #1B3464 0%, #2B5CBF 100%)" }}>
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+              <span className="text-[13px] font-semibold text-white flex-1">
+                {roamActive.flag} NETS Roam active · {roamActive.location}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9,18 15,12 9,6" />
+              </svg>
+            </div>
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       <div className="px-4 pt-4 space-y-4">
         {/* FlashPay card section */}
@@ -105,9 +135,9 @@ export function HomeScreen() {
             style={{ background: "linear-gradient(135deg, #1B3464 0%, #7C3AED 100%)" }}
           >
             <div className="absolute right-3 top-2 text-5xl opacity-20 select-none">✨</div>
-            <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">New</p>
-            <p className="text-[17px] font-bold text-white mt-0.5">NETS Wrapped is here</p>
-            <p className="text-[12px] text-white/70 mt-1">See your 2026 spend story →</p>
+            <p className="text-[12px] font-semibold text-white/70 uppercase tracking-wider">NETS Trace · New</p>
+            <p className="text-[17px] font-bold text-white mt-0.5">Your Wrapped story is ready</p>
+            <p className="text-[12px] text-white/70 mt-1">See your 2026 spend personality →</p>
           </div>
         </button>
 

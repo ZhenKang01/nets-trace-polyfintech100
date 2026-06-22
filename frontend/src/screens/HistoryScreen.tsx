@@ -3,7 +3,7 @@ import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
 import { useUser } from "../context/UserContext";
 
-const API = "http://localhost:8000";
+const API = "http://localhost:8001";
 
 interface Transaction {
   id: string;

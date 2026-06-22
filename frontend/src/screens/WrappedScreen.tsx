@@ -5,7 +5,7 @@ import { NetsCard } from "../components/NetsCard";
 import { useUser } from "../context/UserContext";
 import { WrappedStory } from "./wrapped/WrappedStory";
 
-const API = "http://localhost:8000";
+const API = "http://localhost:8001";
 
 export interface WrappedData {
   user_id: string;

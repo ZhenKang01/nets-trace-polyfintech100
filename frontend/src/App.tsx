@@ -4,7 +4,10 @@ import { NetsTabBar } from "./components/NetsTabBar";
 import { HomeScreen } from "./screens/HomeScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
 import { WrappedScreen } from "./screens/WrappedScreen";
+import { RoamScreen } from "./screens/RoamScreen";
 import { PoolsScreen } from "./screens/PoolsScreen";
+import { PoolDetailScreen } from "./screens/PoolDetailScreen";
+import { JoinPreviewScreen } from "./screens/JoinPreviewScreen";
 
 function PhoneShell() {
   return (
@@ -28,8 +31,10 @@ function PhoneShell() {
             <Route path="/" element={<HomeScreen />} />
             <Route path="/history" element={<HistoryScreen />} />
             <Route path="/wrapped" element={<WrappedScreen />} />
+            <Route path="/roam" element={<RoamScreen />} />
             <Route path="/pools" element={<PoolsScreen />} />
-            <Route path="/more" element={<HomeScreen />} />
+            <Route path="/pools/:poolId" element={<PoolDetailScreen />} />
+            <Route path="/join/:code" element={<JoinPreviewScreen />} />
           </Routes>
         </div>
         <NetsTabBar />
