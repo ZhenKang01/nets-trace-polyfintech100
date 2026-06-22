@@ -96,6 +96,17 @@ def init_db():
             created_at TEXT NOT NULL,
             FOREIGN KEY (pool_id) REFERENCES user_pools(id)
         );
+
+        CREATE TABLE IF NOT EXISTS pool_contributions (
+            id TEXT PRIMARY KEY,
+            pool_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            amount REAL NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (pool_id) REFERENCES user_pools(id),
+            FOREIGN KEY (member_id) REFERENCES pool_members(id)
+        );
     """)
     conn.commit()
     conn.close()

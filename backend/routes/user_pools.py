@@ -43,6 +43,12 @@ class SettleRequest(BaseModel):
     note: Optional[str] = None
 
 
+class ContributeRequest(BaseModel):
+    member_id: str
+    amount: float
+    note: Optional[str] = None
+
+
 # ── Balance computation ───────────────────────────────────────────────────────
 
 def compute_pool_balances(pool_id: str, conn) -> dict[str, float]:
@@ -100,6 +106,19 @@ def make_equal_splits(amount: float, member_ids: list[str]) -> dict[str, float]:
     return splits
 
 
+def compute_pool_fund_balance(pool_id: str, conn) -> tuple[float, float]:
+    """Returns (total_contributed, total_expenses) for the pool's kitty balance."""
+    contributed = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM pool_contributions WHERE pool_id = ?",
+        (pool_id,),
+    ).fetchone()["total"]
+    expenses = conn.execute(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM pool_expenses WHERE pool_id = ?",
+        (pool_id,),
+    ).fetchone()["total"]
+    return round(contributed, 2), round(expenses, 2)
+
+
 def member_initials(display_name: str) -> str:
     parts = display_name.strip().split()
     if len(parts) >= 2:
@@ -126,6 +145,8 @@ def _pool_summary(pool, conn) -> dict:
     self_member = next((m for m in members if m["is_self"] == 1), None)
     your_balance = balances.get(self_member["id"], 0.0) if self_member else 0.0
 
+    total_contributed, total_expenses_val = compute_pool_fund_balance(pool["id"], conn)
+
     return {
         "id": pool["id"],
         "name": pool["name"],
@@ -139,6 +160,8 @@ def _pool_summary(pool, conn) -> dict:
             for m in members
         ],
         "your_balance": your_balance,
+        "pool_fund_balance": round(total_contributed - total_expenses_val, 2),
+        "total_contributed": total_contributed,
         "total_expenses": round(total_row["total"], 2),
         "expense_count": total_row["cnt"],
         "last_activity": (last_row["last"] or pool["created_at"])[:10],
@@ -214,6 +237,22 @@ def get_pool_detail(pool_id: str):
         self_member = next((m for m in members if m["is_self"] == 1), None)
         your_balance = balances.get(self_member["id"], 0.0) if self_member else 0.0
 
+        # Per-member contribution totals
+        contrib_rows = conn.execute(
+            "SELECT member_id, SUM(amount) as total FROM pool_contributions WHERE pool_id = ? GROUP BY member_id",
+            (pool_id,),
+        ).fetchall()
+        contrib_by_member = {r["member_id"]: round(r["total"], 2) for r in contrib_rows}
+        total_contributed, total_expenses_val = compute_pool_fund_balance(pool_id, conn)
+
+        last_contrib = conn.execute(
+            "SELECT MAX(created_at) as last FROM pool_contributions WHERE pool_id = ?",
+            (pool_id,),
+        ).fetchone()["last"]
+        last_activity_raw = max(
+            filter(None, [last_row["last"], last_contrib, pool["created_at"]])
+        )
+
         return {
             "id": pool["id"],
             "name": pool["name"],
@@ -229,13 +268,16 @@ def get_pool_detail(pool_id: str):
                     "is_self": bool(m["is_self"]),
                     "initials": member_initials(m["display_name"]),
                     "net_balance": balances.get(m["id"], 0.0),
+                    "contributed": contrib_by_member.get(m["id"], 0.0),
                 }
                 for m in members
             ],
             "your_balance": your_balance,
+            "pool_fund_balance": round(total_contributed - total_expenses_val, 2),
+            "total_contributed": total_contributed,
             "total_expenses": round(total_row["total"], 2),
             "expense_count": total_row["cnt"],
-            "last_activity": (last_row["last"] or pool["created_at"])[:10],
+            "last_activity": last_activity_raw[:10],
         }
     finally:
         conn.close()
@@ -435,6 +477,71 @@ def get_or_create_invite(pool_id: str):
             "owner_name": pool["owner_name"],
             "member_count": member_count,
             "invite_url": f"http://localhost:5173/join/{code}",
+        }
+    finally:
+        conn.close()
+
+
+@router.get("/user-pools/{pool_id}/contributions")
+def list_contributions(pool_id: str):
+    conn = get_db()
+    try:
+        pool = conn.execute("SELECT id FROM user_pools WHERE id = ?", (pool_id,)).fetchone()
+        if not pool:
+            raise HTTPException(status_code=404, detail="Pool not found")
+        rows = conn.execute(
+            "SELECT c.id, c.amount, c.note, c.created_at, "
+            "m.id as member_id, m.display_name, m.is_self "
+            "FROM pool_contributions c "
+            "JOIN pool_members m ON m.id = c.member_id "
+            "WHERE c.pool_id = ? ORDER BY c.created_at DESC",
+            (pool_id,),
+        ).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "member_id": r["member_id"],
+                "display_name": r["display_name"],
+                "is_self": bool(r["is_self"]),
+                "amount": r["amount"],
+                "note": r["note"],
+                "created_at": r["created_at"][:10],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+@router.post("/user-pools/{pool_id}/contribute", status_code=201)
+def contribute(pool_id: str, body: ContributeRequest):
+    conn = get_db()
+    try:
+        pool = conn.execute("SELECT id FROM user_pools WHERE id = ?", (pool_id,)).fetchone()
+        if not pool:
+            raise HTTPException(status_code=404, detail="Pool not found")
+        member = conn.execute(
+            "SELECT id FROM pool_members WHERE id = ? AND pool_id = ?",
+            (body.member_id, pool_id),
+        ).fetchone()
+        if not member:
+            raise HTTPException(status_code=400, detail="Member not in this pool")
+        if body.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be positive")
+
+        contrib_id = str(uuid.uuid4())
+        now = datetime.utcnow().isoformat()
+        conn.execute(
+            "INSERT INTO pool_contributions (id, pool_id, member_id, amount, note, created_at) VALUES (?,?,?,?,?,?)",
+            (contrib_id, pool_id, body.member_id, body.amount, body.note, now),
+        )
+        conn.commit()
+
+        total_contributed, total_expenses = compute_pool_fund_balance(pool_id, conn)
+        return {
+            "contribution_id": contrib_id,
+            "pool_fund_balance": round(total_contributed - total_expenses, 2),
+            "total_contributed": total_contributed,
         }
     finally:
         conn.close()
