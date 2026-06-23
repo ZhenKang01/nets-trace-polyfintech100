@@ -5,7 +5,7 @@ import { NetsCard } from "../components/NetsCard";
 import { NetsButton } from "../components/NetsButton";
 import { useUser } from "../context/UserContext";
 
-const API = "http://localhost:8001";
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
 interface ForeignTxn {
   id: string;

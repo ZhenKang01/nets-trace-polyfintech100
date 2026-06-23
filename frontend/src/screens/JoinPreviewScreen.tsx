@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { NetsHeader } from "../components/NetsHeader";
 
-const API = "http://localhost:8001";
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
 interface Preview {
   code: string;

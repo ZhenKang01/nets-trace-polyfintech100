@@ -7,7 +7,7 @@ import { NetsFlashPayCard } from "../components/NetsFlashPayCard";
 import { UserSwitcher } from "../components/UserSwitcher";
 import { useUser } from "../context/UserContext";
 
-const API = "http://localhost:8001";
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
 interface Transaction {
   id: string;
