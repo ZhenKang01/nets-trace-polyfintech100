@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
 import { useUser } from "../context/UserContext";
+import { USER_POOLS_FALLBACK, INFERRED_POOLS_FALLBACK } from "../fallbackData";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 const AVATAR_COLORS = ["#1B3464", "#2B5CBF", "#E31837", "#6B7280"];
@@ -415,8 +416,8 @@ export function PoolsScreen() {
   const fetchPools = useCallback(() => {
     setLoading(true);
     Promise.all([
-      fetch(`${API}/users/${userId}/user-pools`).then((r) => r.json()).catch(() => []),
-      fetch(`${API}/users/${userId}/pools`).then((r) => r.json()).catch(() => []),
+      fetch(`${API}/users/${userId}/user-pools`).then((r) => r.json()).catch(() => USER_POOLS_FALLBACK[userId] ?? []),
+      fetch(`${API}/users/${userId}/pools`).then((r) => r.json()).catch(() => INFERRED_POOLS_FALLBACK[userId] ?? []),
     ]).then(([up, ip]) => {
       setUserPools(up);
       setInferredPools(ip);

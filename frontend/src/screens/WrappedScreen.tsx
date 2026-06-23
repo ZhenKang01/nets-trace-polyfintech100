@@ -4,6 +4,7 @@ import { NetsButton } from "../components/NetsButton";
 import { NetsCard } from "../components/NetsCard";
 import { useUser } from "../context/UserContext";
 import { WrappedStory } from "./wrapped/WrappedStory";
+import { WRAPPED_FALLBACK } from "../fallbackData";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
@@ -42,7 +43,7 @@ export function WrappedScreen() {
     fetch(`${API}/users/${userId}/wrapped`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(() => { setData(WRAPPED_FALLBACK[userId] ?? null); setLoading(false); });
   }, [userId]);
 
   if (playing && data) {

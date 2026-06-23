@@ -4,6 +4,7 @@ import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
 import { NetsButton } from "../components/NetsButton";
 import { useUser } from "../context/UserContext";
+import { ROAM_FALLBACK } from "../fallbackData";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
@@ -345,7 +346,7 @@ export function RoamScreen() {
     fetch(`${API}/users/${userId}/roam`)
       .then((r) => r.json())
       .then((d) => { setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(() => { setData(ROAM_FALLBACK[userId] ?? null); setLoading(false); });
   }, [userId]);
 
   return (

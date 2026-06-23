@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
 import { useUser } from "../context/UserContext";
+import { TRANSACTIONS_FALLBACK } from "../fallbackData";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
@@ -48,7 +49,7 @@ export function HistoryScreen() {
     fetch(`${API}/users/${userId}/transactions?limit=100`)
       .then((r) => r.json())
       .then((data) => { setTxns(data); setLoading(false); })
-      .catch(() => setLoading(false));
+      .catch(() => { setTxns(TRANSACTIONS_FALLBACK[userId] ?? []); setLoading(false); });
   }, [userId]);
 
   const groups = groupByDate(txns);

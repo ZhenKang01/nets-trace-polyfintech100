@@ -6,6 +6,7 @@ import { NetsCard } from "../components/NetsCard";
 import { NetsFlashPayCard } from "../components/NetsFlashPayCard";
 import { UserSwitcher } from "../components/UserSwitcher";
 import { useUser } from "../context/UserContext";
+import { TRANSACTIONS_FALLBACK, ROAM_FALLBACK } from "../fallbackData";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 
@@ -51,11 +52,14 @@ export function HomeScreen() {
     fetch(`${API}/users/${userId}/transactions?limit=5`)
       .then((r) => r.json())
       .then(setRecent)
-      .catch(() => {});
+      .catch(() => setRecent((TRANSACTIONS_FALLBACK[userId] ?? []).slice(0, 5)));
     fetch(`${API}/users/${userId}/roam`)
       .then((r) => r.json())
       .then((d) => setRoamActive(d.is_traveling ? { location: d.location, flag: d.flag } : null))
-      .catch(() => setRoamActive(null));
+      .catch(() => {
+        const fb = ROAM_FALLBACK[userId];
+        setRoamActive(fb?.is_traveling ? { location: fb.location, flag: fb.flag } : null);
+      });
   }, [userId]);
 
   return (
