@@ -1,9 +1,21 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
+
+// ── Demo data ─────────────────────────────────────────────────────────────────
+
+const SCAN_MERCHANTS = [
+  { name: "Maxwell Food Centre", category: "Food & Drink", amount: 42.50, icon: "🍜" },
+  { name: "Old Chang Kee", category: "Food & Drink", amount: 18.80, icon: "🥟" },
+  { name: "Lau Pa Sat", category: "Food & Drink", amount: 51.30, icon: "🍢" },
+  { name: "Giant Hypermarket", category: "Groceries", amount: 68.40, icon: "🛒" },
+  { name: "Don Don Donki", category: "Shopping", amount: 58.90, icon: "🛍️" },
+  { name: "Grab (group ride)", category: "Transport", amount: 24.20, icon: "🚗" },
+  { name: "KFC Singapore", category: "Food & Drink", amount: 35.60, icon: "🍗" },
+];
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8001";
 const AVATAR_COLORS = ["#1B3464", "#2B5CBF", "#E31837", "#6B7280"];
@@ -73,43 +85,50 @@ function formatDate(d: string) {
   });
 }
 
-// ── Add Funds Modal ───────────────────────────────────────────────────────────
+// ── Add Funds Modal (bank verification flow) ─────────────────────────────────
+
+type FundsStep = "amount" | "auth" | "processing" | "success";
 
 function AddFundsModal({
   poolId,
   selfMember,
+  poolName,
   onClose,
   onAdded,
 }: {
   poolId: string;
   selfMember: Member;
+  poolName: string;
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const [step, setStep] = useState<FundsStep>("amount");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [processingMsg, setProcessingMsg] = useState("Authorising…");
 
-  const submit = async () => {
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) return;
-    setSaving(true);
+  const amt = parseFloat(amount) || 0;
+
+  const handleContinue = () => {
+    if (amt <= 0) return;
+    setStep("auth");
+  };
+
+  const handleAuthorise = async () => {
+    setStep("processing");
+    setProcessingMsg("Authorising with DBS…");
+    await new Promise((r) => setTimeout(r, 1200));
+    setProcessingMsg("Transferring funds…");
     try {
       await fetch(`${API}/user-pools/${poolId}/contribute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          member_id: selfMember.id,
-          amount: amt,
-          note: note.trim() || null,
-        }),
+        body: JSON.stringify({ member_id: selfMember.id, amount: amt, note: note.trim() || null }),
       });
-      setSuccess(true);
-      setTimeout(() => { onAdded(); }, 900);
-    } catch {
-      setSaving(false);
-    }
+    } catch { /* offline — still show success */ }
+    await new Promise((r) => setTimeout(r, 900));
+    setStep("success");
+    setTimeout(onAdded, 1800);
   };
 
   return (
@@ -118,95 +137,235 @@ function AddFundsModal({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      style={{ background: "rgba(0,0,0,0.45)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ background: step === "auth" ? "rgba(0,0,0,0.75)" : "rgba(0,0,0,0.45)" }}
+      onClick={(e) => { if (e.target === e.currentTarget && step === "amount") onClose(); }}
     >
-      <motion.div
-        className="bg-white rounded-t-[24px] p-5"
-        initial={{ y: 320 }}
-        animate={{ y: 0 }}
-        exit={{ y: 320 }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-10 h-1 bg-nets-border rounded-full mx-auto mb-4" />
+      <AnimatePresence mode="wait">
 
-        <AnimatePresence mode="wait">
-          {success ? (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex flex-col items-center py-6 gap-2"
-            >
-              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-2xl">💰</div>
-              <p className="text-[17px] font-bold text-nets-text">Funds added!</p>
-              <p className="text-[13px] text-nets-muted">S${parseFloat(amount).toFixed(2)} added to pool</p>
-            </motion.div>
-          ) : (
-            <motion.div key="form" className="space-y-4">
-              <div>
-                <p className="text-[17px] font-bold text-nets-text mb-1">Add funds to pool</p>
-                <p className="text-[12px] text-nets-muted">
-                  Adding as <span className="font-semibold text-nets-text">{selfMember.display_name}</span>
-                </p>
-              </div>
+        {/* ── Step 1: Amount ── */}
+        {step === "amount" && (
+          <motion.div
+            key="amount"
+            className="bg-white rounded-t-[24px] p-5 space-y-4"
+            initial={{ y: 340 }} animate={{ y: 0 }} exit={{ y: 340 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-nets-border rounded-full mx-auto" />
+            <div>
+              <p className="text-[17px] font-bold text-nets-text">Add funds to pool</p>
+              <p className="text-[12px] text-nets-muted mt-0.5">
+                Adding as <span className="font-semibold text-nets-text">{selfMember.display_name}</span>
+              </p>
+            </div>
 
-              {/* Amount input */}
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-bold text-nets-muted select-none">S$</span>
-                <input
-                  className="w-full border-2 border-nets-border rounded-nets pl-12 pr-4 py-4 text-[28px] font-bold text-nets-text focus:outline-none focus:border-nets-navy"
-                  placeholder="0.00"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  autoFocus
-                />
-              </div>
-
-              {/* Quick amounts */}
-              <div className="flex gap-2">
-                {["10", "20", "50", "100"].map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setAmount(v)}
-                    className={`flex-1 py-2 rounded-nets text-[13px] font-semibold border transition-colors ${
-                      amount === v ? "bg-nets-navy text-white border-nets-navy" : "bg-nets-gray-bg text-nets-text border-nets-border"
-                    }`}
-                  >
-                    ${v}
-                  </button>
-                ))}
-              </div>
-
-              {/* Note */}
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-bold text-nets-muted select-none">S$</span>
               <input
-                className="w-full border border-nets-border rounded-nets px-4 py-3 text-[13px] focus:outline-none focus:border-nets-navy"
-                placeholder="Add a note (optional)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
+                className="w-full border-2 border-nets-border rounded-nets pl-12 pr-4 py-4 text-[28px] font-bold text-nets-text focus:outline-none focus:border-nets-navy"
+                placeholder="0.00" type="number" step="0.01" min="0.01"
+                value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus
               />
+            </div>
 
-              <button
-                onClick={submit}
-                disabled={saving || !amount || parseFloat(amount) <= 0}
-                className="w-full bg-nets-navy text-white rounded-nets py-3.5 text-[15px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
-              >
-                {saving && <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-                {saving ? "Adding…" : `Add S$${parseFloat(amount || "0").toFixed(2)} to pool`}
+            <div className="flex gap-2">
+              {["10", "20", "50", "100"].map((v) => (
+                <button key={v} onClick={() => setAmount(v)}
+                  className={`flex-1 py-2 rounded-nets text-[13px] font-semibold border transition-colors ${
+                    amount === v ? "bg-nets-navy text-white border-nets-navy" : "bg-nets-gray-bg text-nets-text border-nets-border"
+                  }`}
+                >
+                  ${v}
+                </button>
+              ))}
+            </div>
+
+            <input
+              className="w-full border border-nets-border rounded-nets px-4 py-3 text-[13px] focus:outline-none focus:border-nets-navy"
+              placeholder="Add a note (optional)" value={note} onChange={(e) => setNote(e.target.value)}
+            />
+
+            {/* Linked bank account */}
+            <div className="flex items-center gap-3 border border-nets-border rounded-nets px-4 py-3">
+              <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-[10px] font-black">DBS</span>
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-nets-text">DBS eSavings</p>
+                <p className="text-[11px] text-nets-muted">Account ••••4892</p>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round">
+                <polyline points="6,9 12,15 18,9" />
+              </svg>
+            </div>
+
+            <button
+              onClick={handleContinue}
+              disabled={amt <= 0}
+              className="w-full bg-nets-navy text-white rounded-nets py-3.5 text-[15px] font-semibold disabled:opacity-40"
+            >
+              Continue → S${amt > 0 ? amt.toFixed(2) : "0.00"}
+            </button>
+          </motion.div>
+        )}
+
+        {/* ── Step 2: Bank auth ── */}
+        {step === "auth" && (
+          <motion.div
+            key="auth"
+            className="rounded-t-[24px] overflow-hidden"
+            initial={{ y: 340 }} animate={{ y: 0 }} exit={{ y: 340 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* DBS header bar */}
+            <div className="bg-red-600 px-5 pt-5 pb-4 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-white flex items-center justify-center shrink-0">
+                <span className="text-red-600 text-[11px] font-black">DBS</span>
+              </div>
+              <div>
+                <p className="text-white font-bold text-[15px]">DBS digibank</p>
+                <p className="text-white/70 text-[11px]">Payment authorisation</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 space-y-4">
+              {/* Payment summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] text-nets-muted">From</span>
+                  <span className="text-[13px] font-semibold text-nets-text">DBS eSavings ••••4892</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[12px] text-nets-muted">To</span>
+                  <span className="text-[13px] font-semibold text-nets-text">{poolName} (Pool)</span>
+                </div>
+                <div className="border-t border-nets-border pt-3 flex justify-between items-center">
+                  <span className="text-[12px] text-nets-muted">Amount</span>
+                  <span className="text-[20px] font-bold text-nets-text">S${amt.toFixed(2)}</span>
+                </div>
+                {note ? (
+                  <div className="flex justify-between items-center">
+                    <span className="text-[12px] text-nets-muted">Reference</span>
+                    <span className="text-[12px] text-nets-text">{note}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Biometric authorise */}
+              <div className="flex flex-col items-center gap-3 py-2">
+                <button
+                  onClick={handleAuthorise}
+                  className="w-20 h-20 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center active:scale-95 transition-transform active:bg-red-100"
+                >
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M12 10a2 2 0 0 0-2 2c0 1.1.9 2 2 2s2-.9 2-2a2 2 0 0 0-2-2z" />
+                    <path d="M12 2a10 10 0 0 1 0 20" />
+                    <path d="M12 6a6 6 0 0 1 0 12" />
+                    <path d="M12 2C6.48 2 2 6.48 2 12" />
+                    <path d="M8 12a4 4 0 0 1 4-4" />
+                  </svg>
+                </button>
+                <p className="text-[13px] font-semibold text-nets-text">Touch to authorise</p>
+                <p className="text-[11px] text-nets-muted">Use fingerprint to confirm payment</p>
+              </div>
+
+              <button onClick={() => setStep("amount")} className="w-full text-[13px] text-nets-muted py-2 text-center">
+                ← Back
               </button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Step 3: Processing ── */}
+        {step === "processing" && (
+          <motion.div
+            key="processing"
+            className="bg-white rounded-t-[24px] p-8 flex flex-col items-center gap-4"
+            initial={{ y: 340 }} animate={{ y: 0 }} exit={{ opacity: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+              <div className="w-10 h-10 border-3 border-red-500 border-t-transparent rounded-full animate-spin"
+                style={{ borderWidth: 3 }} />
+            </div>
+            <div className="text-center">
+              <p className="text-[16px] font-bold text-nets-text">{processingMsg}</p>
+              <p className="text-[12px] text-nets-muted mt-1">Securing connection with DBS</p>
+            </div>
+            {/* Animated dots */}
+            <div className="flex gap-1.5">
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-2 h-2 rounded-full bg-red-400"
+                  animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 1.2, delay: i * 0.2 }}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Step 4: Success ── */}
+        {step === "success" && (
+          <motion.div
+            key="success"
+            className="bg-white rounded-t-[24px] p-8 flex flex-col items-center gap-3"
+            initial={{ y: 340 }} animate={{ y: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.div
+              className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-3xl"
+              initial={{ scale: 0 }} animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 15 }}
+            >
+              ✅
             </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            <motion.div className="text-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <p className="text-[18px] font-bold text-nets-text">Transfer successful</p>
+              <p className="text-[24px] font-bold text-green-600 mt-1">S${amt.toFixed(2)}</p>
+              <p className="text-[12px] text-nets-muted mt-1">Deducted from DBS eSavings ••••4892</p>
+              <p className="text-[12px] text-nets-muted">Added to {poolName}</p>
+            </motion.div>
+          </motion.div>
+        )}
+
+      </AnimatePresence>
     </motion.div>
   );
 }
 
-// ── Add Expense Modal ─────────────────────────────────────────────────────────
+// ── Add Expense Modal (QR scanner flow) ──────────────────────────────────────
+
+type ExpenseStep = "scan" | "review" | "saving" | "success";
+
+function ScannerFrame() {
+  return (
+    <div className="relative w-56 h-56">
+      {/* Corner brackets */}
+      {[
+        "top-0 left-0 border-t-2 border-l-2 rounded-tl-lg",
+        "top-0 right-0 border-t-2 border-r-2 rounded-tr-lg",
+        "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-lg",
+        "bottom-0 right-0 border-b-2 border-r-2 rounded-br-lg",
+      ].map((cls, i) => (
+        <div key={i} className={`absolute w-7 h-7 border-green-400 ${cls}`} />
+      ))}
+      {/* Scan line */}
+      <motion.div
+        className="absolute left-2 right-2 h-0.5 bg-green-400 rounded-full"
+        style={{ boxShadow: "0 0 10px 3px rgba(74,222,128,0.7)" }}
+        animate={{ top: ["8px", "214px", "8px"] }}
+        transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
+      />
+      {/* Inner overlay */}
+      <div className="absolute inset-4 opacity-10 bg-green-400 rounded-sm" />
+    </div>
+  );
+}
 
 function AddExpenseModal({
   poolId,
@@ -219,97 +378,248 @@ function AddExpenseModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [desc, setDesc] = useState("");
-  const [amount, setAmount] = useState("");
+  const [step, setStep] = useState<ExpenseStep>("scan");
+  const detected = useRef(SCAN_MERCHANTS[Math.floor(Math.random() * SCAN_MERCHANTS.length)]);
+  const [amount, setAmount] = useState(String(detected.current.amount.toFixed(2)));
   const [payerId, setPayerId] = useState(members.find((m) => m.is_self)?.id ?? members[0]?.id ?? "");
-  const [saving, setSaving] = useState(false);
+  const [manualDesc, setManualDesc] = useState("");
+  const [showManual, setShowManual] = useState(false);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-scan after 2.8s
+  useEffect(() => {
+    if (step !== "scan") return;
+    scanTimerRef.current = setTimeout(() => setStep("review"), 2800);
+    return () => { if (scanTimerRef.current) clearTimeout(scanTimerRef.current); };
+  }, [step]);
 
   const submit = async () => {
     const amt = parseFloat(amount);
-    if (!desc.trim() || isNaN(amt) || amt <= 0) return;
-    setSaving(true);
+    if (isNaN(amt) || amt <= 0) return;
+    setStep("saving");
+    const desc = manualDesc.trim() || detected.current.name;
     try {
       await fetch(`${API}/user-pools/${poolId}/expenses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          description: desc.trim(),
-          amount: amt,
-          payer_member_id: payerId,
-          split_type: "equal",
-        }),
+        body: JSON.stringify({ description: desc, amount: amt, payer_member_id: payerId, split_type: "equal" }),
       });
-      onAdded();
-    } catch {
-      setSaving(false);
-    }
+    } catch { /* offline */ }
+    setStep("success");
+    setTimeout(onAdded, 1400);
   };
 
+  const perMember = members.length > 0 ? (parseFloat(amount) || 0) / members.length : 0;
+
   return (
-    <motion.div
-      className="absolute inset-0 z-40 flex flex-col justify-end"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{ background: "rgba(0,0,0,0.4)" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <motion.div
-        className="bg-white rounded-t-[24px] p-5 space-y-4"
-        initial={{ y: 300 }}
-        animate={{ y: 0 }}
-        exit={{ y: 300 }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="w-10 h-1 bg-nets-border rounded-full mx-auto" />
-        <p className="text-[17px] font-bold text-nets-text">Add expense</p>
-        <input
-          className="w-full border border-nets-border rounded-nets px-4 py-3 text-[14px] focus:outline-none focus:border-nets-navy"
-          placeholder="What was this for?"
-          value={desc}
-          onChange={(e) => setDesc(e.target.value)}
-          autoFocus
-        />
-        <div className="flex items-center gap-2">
-          <span className="text-[20px] font-semibold text-nets-muted shrink-0">S$</span>
-          <input
-            className="flex-1 border border-nets-border rounded-nets px-4 py-3 text-[20px] font-semibold focus:outline-none focus:border-nets-navy"
-            placeholder="0.00"
-            type="number"
-            step="0.01"
-            min="0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-        </div>
-        <div>
-          <p className="text-[12px] font-semibold text-nets-muted mb-2">Who paid?</p>
-          <div className="flex gap-2 flex-wrap">
-            {members.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setPayerId(m.id)}
-                className={`px-3 py-1.5 rounded-full text-[13px] font-medium transition-colors ${
-                  payerId === m.id ? "bg-nets-navy text-white" : "bg-nets-gray-bg text-nets-text border border-nets-border"
-                }`}
-              >
-                {m.is_self ? "You" : m.display_name.split(" ")[0]}
-              </button>
-            ))}
-          </div>
-        </div>
-        <p className="text-[11px] text-nets-muted">Split equally among {members.length} members</p>
-        <button
-          onClick={submit}
-          disabled={saving || !desc.trim() || !amount || parseFloat(amount) <= 0}
-          className="w-full bg-nets-navy text-white rounded-nets py-3.5 text-[15px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+    <AnimatePresence mode="wait">
+
+      {/* ── Scan step: full-screen scanner ── */}
+      {(step === "scan") && (
+        <motion.div
+          key="scan"
+          className="absolute inset-0 z-40 flex flex-col"
+          style={{ background: "linear-gradient(180deg, #050d1f 0%, #0d1e40 100%)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
         >
-          {saving && <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-          {saving ? "Saving…" : "Add expense"}
-        </button>
-      </motion.div>
-    </motion.div>
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-3">
+            <div />
+            <p className="text-white font-bold text-[15px]">Scan to add expense</p>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <p className="text-white/50 text-[12px] text-center mb-8">
+            Point at any PayNow or NETS QR code
+          </p>
+
+          {/* Scanner centered */}
+          <div className="flex-1 flex items-center justify-center">
+            <ScannerFrame />
+          </div>
+
+          {/* Pool pay badge */}
+          <div className="mx-5 mb-3 rounded-xl bg-white/10 border border-white/20 p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-nets-navy flex items-center justify-center shrink-0">
+              <span className="text-white text-[9px] font-black">NETS</span>
+            </div>
+            <div>
+              <p className="text-white text-[12px] font-semibold">Paying from pool</p>
+              <p className="text-white/50 text-[11px]">Expense split equally between members</p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => { if (scanTimerRef.current) clearTimeout(scanTimerRef.current); setShowManual(true); setStep("review"); }}
+            className="text-white/40 text-[12px] text-center pb-6"
+          >
+            Enter manually instead
+          </button>
+        </motion.div>
+      )}
+
+      {/* ── Review step: bottom sheet slides up over scanner bg ── */}
+      {(step === "review") && (
+        <motion.div
+          key="review"
+          className="absolute inset-0 z-40 flex flex-col justify-end"
+          style={{ background: "linear-gradient(180deg, #050d1f 0%, rgba(13,30,64,0.92) 100%)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          {/* Dim scanner area */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 opacity-30">
+              <ScannerFrame />
+            </div>
+          </div>
+
+          {/* Detected badge */}
+          <motion.div
+            className="mx-4 mb-2 flex items-center gap-2 bg-green-500/20 border border-green-500/40 rounded-xl px-4 py-2.5"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+            <p className="text-green-300 text-[12px] font-semibold">QR detected</p>
+          </motion.div>
+
+          {/* Review sheet */}
+          <motion.div
+            className="bg-white rounded-t-[24px] p-5 space-y-4"
+            initial={{ y: 400 }}
+            animate={{ y: 0 }}
+            transition={{ type: "spring", damping: 28, stiffness: 280 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-nets-border rounded-full mx-auto" />
+
+            {/* Merchant detected */}
+            <div className="flex items-center gap-3 bg-nets-gray-bg rounded-xl p-3">
+              <div className="w-11 h-11 rounded-xl bg-white border border-nets-border flex items-center justify-center text-2xl shrink-0">
+                {detected.current.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                {showManual ? (
+                  <input
+                    className="w-full text-[14px] font-semibold text-nets-text bg-transparent focus:outline-none border-b border-nets-border"
+                    value={manualDesc} onChange={(e) => setManualDesc(e.target.value)}
+                    placeholder="What was this for?" autoFocus
+                  />
+                ) : (
+                  <>
+                    <p className="text-[14px] font-semibold text-nets-text truncate">{detected.current.name}</p>
+                    <p className="text-[11px] text-nets-muted">{detected.current.category}</p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Amount (editable) */}
+            <div>
+              <p className="text-[11px] font-semibold text-nets-muted uppercase tracking-wider mb-1.5">Total amount</p>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[18px] font-bold text-nets-muted">S$</span>
+                <input
+                  className="w-full border-2 border-nets-border rounded-nets pl-11 pr-4 py-3 text-[24px] font-bold text-nets-text focus:outline-none focus:border-nets-navy"
+                  type="number" step="0.01" min="0.01"
+                  value={amount} onChange={(e) => setAmount(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Who paid */}
+            <div>
+              <p className="text-[11px] font-semibold text-nets-muted uppercase tracking-wider mb-2">Who paid?</p>
+              <div className="flex gap-2 flex-wrap">
+                {members.map((m) => (
+                  <button key={m.id} onClick={() => setPayerId(m.id)}
+                    className={`px-3 py-1.5 rounded-full text-[12px] font-semibold transition-colors ${
+                      payerId === m.id ? "bg-nets-navy text-white" : "bg-nets-gray-bg text-nets-text border border-nets-border"
+                    }`}
+                  >
+                    {m.is_self ? "You" : m.display_name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Split preview */}
+            {members.length > 0 && parseFloat(amount) > 0 && (
+              <div className="bg-blue-50 rounded-xl px-4 py-3 flex items-center justify-between">
+                <p className="text-[12px] text-nets-blue font-medium">
+                  Split equally × {members.length} members
+                </p>
+                <p className="text-[13px] font-bold text-nets-navy">
+                  S${perMember.toFixed(2)} each
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={submit}
+              disabled={!amount || parseFloat(amount) <= 0}
+              className="w-full bg-nets-navy text-white rounded-nets py-3.5 text-[15px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
+            >
+              ✓ Add expense · S${(parseFloat(amount) || 0).toFixed(2)}
+            </button>
+
+            <button onClick={onClose} className="w-full text-center text-[13px] text-nets-muted py-1">Cancel</button>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* ── Saving / success ── */}
+      {(step === "saving" || step === "success") && (
+        <motion.div
+          key="done"
+          className="absolute inset-0 z-40 flex flex-col items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.6)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <motion.div
+            className="bg-white rounded-2xl p-8 mx-8 flex flex-col items-center gap-3 w-full max-w-[280px]"
+            initial={{ scale: 0.85 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+          >
+            {step === "saving" ? (
+              <>
+                <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
+                  <div className="w-8 h-8 border-3 border-nets-navy border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
+                </div>
+                <p className="text-[15px] font-bold text-nets-text">Adding expense…</p>
+              </>
+            ) : (
+              <>
+                <motion.div
+                  className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-3xl"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                >
+                  🧾
+                </motion.div>
+                <p className="text-[16px] font-bold text-nets-text">Expense added!</p>
+                <p className="text-[12px] text-nets-muted text-center">
+                  S${(parseFloat(amount) || 0).toFixed(2)} split among {members.length} members
+                </p>
+              </>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+
+    </AnimatePresence>
   );
 }
 
@@ -759,6 +1069,7 @@ export function PoolDetailScreen() {
           <AddFundsModal
             poolId={pool.id}
             selfMember={selfMember}
+            poolName={pool.name}
             onClose={() => setShowAddFunds(false)}
             onAdded={() => { setShowAddFunds(false); refresh(); }}
           />
