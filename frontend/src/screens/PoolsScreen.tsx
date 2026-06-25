@@ -180,6 +180,24 @@ function InferredPoolCard({ pool, index }: { pool: InferredPool; index: number }
 const POOL_EMOJIS = ["🍽️", "🧋", "🍺", "🛣️", "🎖️", "🏠", "🎬", "💪", "✈️", "🎉", "💰", "🎮"];
 const POOL_TAGS = ["Dinner", "Drinks", "Trip", "Rent", "Entertainment", "Groceries", "Other"];
 
+interface CountryOption {
+  flag: string;
+  name: string;
+  currency: string;
+  symbol: string;
+  networks: string;
+}
+
+const COUNTRIES: CountryOption[] = [
+  { flag: "🇸🇬", name: "Singapore", currency: "SGD", symbol: "S$", networks: "PayNow · NETS" },
+  { flag: "🇲🇾", name: "Malaysia", currency: "MYR", symbol: "RM", networks: "DuitNow" },
+  { flag: "🇹🇭", name: "Thailand", currency: "THB", symbol: "฿", networks: "PromptPay" },
+  { flag: "🇮🇩", name: "Indonesia", currency: "IDR", symbol: "Rp", networks: "QRIS" },
+  { flag: "🇯🇵", name: "Japan", currency: "JPY", symbol: "¥", networks: "PayPay QR" },
+  { flag: "🇦🇺", name: "Australia", currency: "AUD", symbol: "A$", networks: "PayID" },
+  { flag: "🌏", name: "Other", currency: "USD", symbol: "$", networks: "International" },
+];
+
 function CreatePoolOverlay({
   userId,
   onClose,
@@ -193,6 +211,7 @@ function CreatePoolOverlay({
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("💰");
   const [tag, setTag] = useState("Dinner");
+  const [country, setCountry] = useState<CountryOption>(COUNTRIES[0]);
   const [members, setMembers] = useState<NewMember[]>([]);
   const [memberName, setMemberName] = useState("");
   const [memberPhone, setMemberPhone] = useState("");
@@ -211,7 +230,15 @@ function CreatePoolOverlay({
       const res = await fetch(`${API}/users/${userId}/user-pools`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim() || "My Pool", icon, purpose_tag: tag }),
+        body: JSON.stringify({
+          name: name.trim() || "My Pool",
+          icon,
+          purpose_tag: tag,
+          country: country.name,
+          currency: country.currency,
+          currency_symbol: country.symbol,
+          payment_networks: country.networks,
+        }),
       });
       const pool = await res.json();
       for (const m of members) {
@@ -289,6 +316,33 @@ function CreatePoolOverlay({
                 ))}
               </div>
             </div>
+            <div>
+              <p className="text-[12px] font-semibold text-nets-muted uppercase tracking-wider mb-2">Pool country</p>
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                {COUNTRIES.map((c) => (
+                  <button
+                    key={c.name}
+                    onClick={() => setCountry(c)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full border transition-all ${
+                      country.name === c.name
+                        ? "bg-nets-navy border-nets-navy text-white"
+                        : "bg-white border-nets-border text-nets-text"
+                    }`}
+                  >
+                    <span className="text-[15px] leading-none">{c.flag}</span>
+                    <span className="text-[12px] font-medium whitespace-nowrap">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2 px-1 py-1.5 bg-blue-50 rounded-lg">
+                <span className="text-[13px]">{country.flag}</span>
+                <span className="text-[11px] font-semibold text-nets-blue">
+                  {country.symbol} {country.currency}
+                </span>
+                <span className="text-[11px] text-nets-muted">·</span>
+                <span className="text-[11px] text-nets-blue">via {country.networks}</span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -352,6 +406,14 @@ function CreatePoolOverlay({
                 <div>
                   <p className="text-[17px] font-bold text-nets-text">{name || "My Pool"}</p>
                   <p className="text-[12px] text-nets-muted">{tag}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-nets-border">
+                <span className="text-[22px]">{country.flag}</span>
+                <div className="flex-1">
+                  <p className="text-[12px] font-semibold text-nets-muted uppercase tracking-wider">Country & Payment</p>
+                  <p className="text-[13px] font-medium text-nets-text">{country.name}</p>
+                  <p className="text-[11px] text-nets-muted">{country.symbol} {country.currency} · via {country.networks}</p>
                 </div>
               </div>
               <p className="text-[12px] font-semibold text-nets-muted uppercase tracking-wider mb-2">Members</p>

@@ -16,6 +16,10 @@ class CreatePoolRequest(BaseModel):
     name: str
     icon: str = "💰"
     purpose_tag: Optional[str] = None
+    country: str = "Singapore"
+    currency: str = "SGD"
+    currency_symbol: str = "S$"
+    payment_networks: str = "PayNow"
 
 
 class AddMemberRequest(BaseModel):
@@ -147,13 +151,18 @@ def _pool_summary(pool, conn) -> dict:
 
     total_contributed, total_expenses_val = compute_pool_fund_balance(pool["id"], conn)
 
+    pool_dict = dict(pool)
     return {
-        "id": pool["id"],
-        "name": pool["name"],
-        "icon": pool["icon"],
-        "purpose_tag": pool["purpose_tag"],
-        "owner_user_id": pool["owner_user_id"],
-        "created_at": pool["created_at"],
+        "id": pool_dict["id"],
+        "name": pool_dict["name"],
+        "icon": pool_dict["icon"],
+        "purpose_tag": pool_dict["purpose_tag"],
+        "owner_user_id": pool_dict["owner_user_id"],
+        "created_at": pool_dict["created_at"],
+        "country": pool_dict.get("country", "Singapore"),
+        "currency": pool_dict.get("currency", "SGD"),
+        "currency_symbol": pool_dict.get("currency_symbol", "S$"),
+        "payment_networks": pool_dict.get("payment_networks", "PayNow"),
         "member_count": len(members),
         "members_preview": [
             {"id": m["id"], "display_name": m["display_name"], "is_self": bool(m["is_self"])}
@@ -164,7 +173,7 @@ def _pool_summary(pool, conn) -> dict:
         "total_contributed": total_contributed,
         "total_expenses": round(total_row["total"], 2),
         "expense_count": total_row["cnt"],
-        "last_activity": (last_row["last"] or pool["created_at"])[:10],
+        "last_activity": (last_row["last"] or pool_dict["created_at"])[:10],
     }
 
 
@@ -194,8 +203,10 @@ def create_pool(user_id: str, body: CreatePoolRequest):
         pool_id = str(uuid.uuid4())
         now = datetime.utcnow().isoformat()
         conn.execute(
-            "INSERT INTO user_pools (id, name, icon, purpose_tag, owner_user_id, created_at) VALUES (?,?,?,?,?,?)",
-            (pool_id, body.name, body.icon, body.purpose_tag, user_id, now),
+            "INSERT INTO user_pools (id, name, icon, purpose_tag, owner_user_id, created_at, "
+            "country, currency, currency_symbol, payment_networks) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (pool_id, body.name, body.icon, body.purpose_tag, user_id, now,
+             body.country, body.currency, body.currency_symbol, body.payment_networks),
         )
 
         # Auto-add the owner as the self member
@@ -253,13 +264,18 @@ def get_pool_detail(pool_id: str):
             filter(None, [last_row["last"], last_contrib, pool["created_at"]])
         )
 
+        pool_dict = dict(pool)
         return {
-            "id": pool["id"],
-            "name": pool["name"],
-            "icon": pool["icon"],
-            "purpose_tag": pool["purpose_tag"],
-            "owner_user_id": pool["owner_user_id"],
-            "created_at": pool["created_at"],
+            "id": pool_dict["id"],
+            "name": pool_dict["name"],
+            "icon": pool_dict["icon"],
+            "purpose_tag": pool_dict["purpose_tag"],
+            "owner_user_id": pool_dict["owner_user_id"],
+            "created_at": pool_dict["created_at"],
+            "country": pool_dict.get("country", "Singapore"),
+            "currency": pool_dict.get("currency", "SGD"),
+            "currency_symbol": pool_dict.get("currency_symbol", "S$"),
+            "payment_networks": pool_dict.get("payment_networks", "PayNow"),
             "members": [
                 {
                     "id": m["id"],

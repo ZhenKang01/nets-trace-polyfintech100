@@ -124,4 +124,16 @@ def init_db():
         );
     """)
     conn.commit()
+    # Migrations — safe to re-run; sqlite3 has no IF NOT EXISTS for ALTER TABLE
+    for sql in [
+        "ALTER TABLE user_pools ADD COLUMN country TEXT NOT NULL DEFAULT 'Singapore'",
+        "ALTER TABLE user_pools ADD COLUMN currency TEXT NOT NULL DEFAULT 'SGD'",
+        "ALTER TABLE user_pools ADD COLUMN currency_symbol TEXT NOT NULL DEFAULT 'S$'",
+        "ALTER TABLE user_pools ADD COLUMN payment_networks TEXT NOT NULL DEFAULT 'PayNow'",
+    ]:
+        try:
+            c.execute(sql)
+            conn.commit()
+        except Exception:
+            pass  # column already exists
     conn.close()
