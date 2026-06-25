@@ -338,14 +338,14 @@ function AddFundsModal({
   );
 }
 
-// ── Add Expense Modal (QR scanner flow) ──────────────────────────────────────
+// ── Add Expense Modal (QR scanner + generator flow) ──────────────────────────
 
 type ExpenseStep = "scan" | "review" | "saving" | "success";
+type ExpenseMode = "scan" | "generate";
 
 function ScannerFrame() {
   return (
     <div className="relative w-56 h-56">
-      {/* Corner brackets */}
       {[
         "top-0 left-0 border-t-2 border-l-2 rounded-tl-lg",
         "top-0 right-0 border-t-2 border-r-2 rounded-tr-lg",
@@ -354,14 +354,12 @@ function ScannerFrame() {
       ].map((cls, i) => (
         <div key={i} className={`absolute w-7 h-7 border-green-400 ${cls}`} />
       ))}
-      {/* Scan line */}
       <motion.div
         className="absolute left-2 right-2 h-0.5 bg-green-400 rounded-full"
         style={{ boxShadow: "0 0 10px 3px rgba(74,222,128,0.7)" }}
         animate={{ top: ["8px", "214px", "8px"] }}
         transition={{ repeat: Infinity, duration: 2.4, ease: "easeInOut" }}
       />
-      {/* Inner overlay */}
       <div className="absolute inset-4 opacity-10 bg-green-400 rounded-sm" />
     </div>
   );
@@ -378,26 +376,41 @@ function AddExpenseModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const [mode, setMode] = useState<ExpenseMode>("scan");
   const [step, setStep] = useState<ExpenseStep>("scan");
   const detected = useRef(SCAN_MERCHANTS[Math.floor(Math.random() * SCAN_MERCHANTS.length)]);
   const [amount, setAmount] = useState(String(detected.current.amount.toFixed(2)));
+  const [genAmount, setGenAmount] = useState("");
   const [payerId, setPayerId] = useState(members.find((m) => m.is_self)?.id ?? members[0]?.id ?? "");
   const [manualDesc, setManualDesc] = useState("");
   const [showManual, setShowManual] = useState(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-scan after 2.8s
+  // Auto-advance only in scan mode
   useEffect(() => {
-    if (step !== "scan") return;
+    if (step !== "scan" || mode !== "scan") return;
     scanTimerRef.current = setTimeout(() => setStep("review"), 2800);
     return () => { if (scanTimerRef.current) clearTimeout(scanTimerRef.current); };
-  }, [step]);
+  }, [step, mode]);
+
+  const switchMode = (m: ExpenseMode) => {
+    if (scanTimerRef.current) clearTimeout(scanTimerRef.current);
+    setMode(m);
+  };
+
+  const confirmGenerated = () => {
+    const amt = parseFloat(genAmount);
+    if (isNaN(amt) || amt <= 0) return;
+    setAmount(genAmount);
+    setShowManual(true);
+    setStep("review");
+  };
 
   const submit = async () => {
     const amt = parseFloat(amount);
     if (isNaN(amt) || amt <= 0) return;
     setStep("saving");
-    const desc = manualDesc.trim() || detected.current.name;
+    const desc = manualDesc.trim() || (mode === "generate" ? "Group expense" : detected.current.name);
     try {
       await fetch(`${API}/user-pools/${poolId}/expenses`, {
         method: "POST",
@@ -410,12 +423,14 @@ function AddExpenseModal({
   };
 
   const perMember = members.length > 0 ? (parseFloat(amount) || 0) / members.length : 0;
+  const genAmt = parseFloat(genAmount) || 0;
+  const genQRValue = `https://nets.com.sg/qr/pool/${poolId}?amount=${genAmount}&split=equal&n=${members.length}`;
 
   return (
     <AnimatePresence mode="wait">
 
-      {/* ── Scan step: full-screen scanner ── */}
-      {(step === "scan") && (
+      {/* ── Scan / Generate step: full-screen ── */}
+      {step === "scan" && (
         <motion.div
           key="scan"
           className="absolute inset-0 z-40 flex flex-col"
@@ -426,8 +441,10 @@ function AddExpenseModal({
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 pt-5 pb-3">
-            <div />
-            <p className="text-white font-bold text-[15px]">Scan to add expense</p>
+            <div className="w-8" />
+            <p className="text-white font-bold text-[15px]">
+              {mode === "scan" ? "Scan to add expense" : "Generate payment QR"}
+            </p>
             <button onClick={onClose} className="w-8 h-8 flex items-center justify-center">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -435,37 +452,142 @@ function AddExpenseModal({
             </button>
           </div>
 
-          <p className="text-white/50 text-[12px] text-center mb-8">
-            Point at any PayNow or NETS QR code
-          </p>
-
-          {/* Scanner centered */}
-          <div className="flex-1 flex items-center justify-center">
-            <ScannerFrame />
+          {/* Mode toggle */}
+          <div className="flex mx-5 mb-4 p-1 rounded-xl bg-white/10 border border-white/15">
+            {(["scan", "generate"] as ExpenseMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => switchMode(m)}
+                className={`flex-1 py-2 flex items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold transition-all ${
+                  mode === m ? "bg-white/20 text-white shadow" : "text-white/40"
+                }`}
+              >
+                <span>{m === "scan" ? "📷" : "📲"}</span>
+                {m === "scan" ? "Scan QR" : "Generate QR"}
+              </button>
+            ))}
           </div>
 
-          {/* Pool pay badge */}
-          <div className="mx-5 mb-3 rounded-xl bg-white/10 border border-white/20 p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-nets-navy flex items-center justify-center shrink-0">
-              <span className="text-white text-[9px] font-black">NETS</span>
-            </div>
-            <div>
-              <p className="text-white text-[12px] font-semibold">Paying from pool</p>
-              <p className="text-white/50 text-[11px]">Expense split equally between members</p>
-            </div>
-          </div>
+          {/* ── Scan mode ── */}
+          {mode === "scan" && (
+            <>
+              <p className="text-white/50 text-[12px] text-center mb-8">
+                Point at any PayNow or NETS QR code
+              </p>
+              <div className="flex-1 flex items-center justify-center">
+                <ScannerFrame />
+              </div>
+              <div className="mx-5 mb-3 rounded-xl bg-white/10 border border-white/20 p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-nets-navy flex items-center justify-center shrink-0">
+                  <span className="text-white text-[9px] font-black">NETS</span>
+                </div>
+                <div>
+                  <p className="text-white text-[12px] font-semibold">Paying from pool</p>
+                  <p className="text-white/50 text-[11px]">Expense split equally between members</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { if (scanTimerRef.current) clearTimeout(scanTimerRef.current); setShowManual(true); setStep("review"); }}
+                className="text-white/40 text-[12px] text-center pb-6"
+              >
+                Enter manually instead
+              </button>
+            </>
+          )}
 
-          <button
-            onClick={() => { if (scanTimerRef.current) clearTimeout(scanTimerRef.current); setShowManual(true); setStep("review"); }}
-            className="text-white/40 text-[12px] text-center pb-6"
-          >
-            Enter manually instead
-          </button>
+          {/* ── Generate mode ── */}
+          {mode === "generate" && (
+            <>
+              {/* Amount input */}
+              <div className="px-5 mb-4">
+                <p className="text-white/40 text-[11px] font-semibold uppercase tracking-wider mb-2 text-center">
+                  Amount to split
+                </p>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[20px] font-bold text-white/40 select-none">S$</span>
+                  <input
+                    className="w-full bg-white/10 border border-white/20 rounded-xl pl-12 pr-4 py-3 text-[28px] font-bold text-white focus:outline-none focus:border-green-400/60"
+                    placeholder="0.00" type="number" step="0.01" min="0.01"
+                    value={genAmount} onChange={(e) => setGenAmount(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {/* QR area */}
+              <div className="flex-1 flex flex-col items-center justify-center">
+                <AnimatePresence mode="wait">
+                  {genAmt > 0 ? (
+                    <motion.div
+                      key="qr-live"
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0.7, opacity: 0 }}
+                      transition={{ type: "spring", stiffness: 320, damping: 22 }}
+                      className="flex flex-col items-center gap-3"
+                    >
+                      <div
+                        className="p-4 rounded-2xl border-2 border-green-400/50"
+                        style={{
+                          background: "#0a1628",
+                          boxShadow: "0 0 36px 10px rgba(74,222,128,0.18)",
+                        }}
+                      >
+                        <QRCodeSVG
+                          value={genQRValue}
+                          size={148}
+                          bgColor="#0a1628"
+                          fgColor="#4ade80"
+                          level="M"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
+                        <span className="text-green-300 text-[12px] font-semibold">
+                          S${genAmt.toFixed(2)} · {members.length} members · S${(genAmt / Math.max(members.length, 1)).toFixed(2)} each
+                        </span>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="qr-placeholder"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="w-48 h-48 border-2 border-dashed border-white/15 rounded-2xl flex items-center justify-center"
+                    >
+                      <span className="text-white/20 text-[12px] text-center px-4">Enter amount to generate QR</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Badge */}
+              <div className="mx-5 mb-3 rounded-xl bg-white/10 border border-white/20 p-3 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-nets-navy flex items-center justify-center shrink-0">
+                  <span className="text-white text-[9px] font-black">NETS</span>
+                </div>
+                <div>
+                  <p className="text-white text-[12px] font-semibold">NETS Payment QR</p>
+                  <p className="text-white/50 text-[11px]">Others scan this to pay · split from pool</p>
+                </div>
+              </div>
+
+              <div className="px-5 pb-6">
+                <button
+                  onClick={confirmGenerated}
+                  disabled={genAmt <= 0}
+                  className="w-full bg-green-500 disabled:bg-white/10 text-white rounded-xl py-3.5 text-[15px] font-semibold disabled:text-white/30 active:opacity-80 transition-colors"
+                >
+                  {genAmt > 0 ? `✓ Payment received · S$${genAmt.toFixed(2)}` : "Enter amount above"}
+                </button>
+              </div>
+            </>
+          )}
         </motion.div>
       )}
 
-      {/* ── Review step: bottom sheet slides up over scanner bg ── */}
-      {(step === "review") && (
+      {/* ── Review step ── */}
+      {step === "review" && (
         <motion.div
           key="review"
           className="absolute inset-0 z-40 flex flex-col justify-end"
@@ -474,25 +596,37 @@ function AddExpenseModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          {/* Dim scanner area */}
           <div className="flex-1 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-3 opacity-30">
-              <ScannerFrame />
+            <div className="opacity-25">
+              {mode === "scan" ? (
+                <ScannerFrame />
+              ) : (
+                genAmt > 0 ? (
+                  <div className="p-3 rounded-xl border border-green-400/30" style={{ background: "#0a1628" }}>
+                    <QRCodeSVG value={genQRValue} size={100} bgColor="#0a1628" fgColor="#4ade80" level="M" />
+                  </div>
+                ) : null
+              )}
             </div>
           </div>
 
-          {/* Detected badge */}
+          {/* Status badge */}
           <motion.div
-            className="mx-4 mb-2 flex items-center gap-2 bg-green-500/20 border border-green-500/40 rounded-xl px-4 py-2.5"
+            className={`mx-4 mb-2 flex items-center gap-2 border rounded-xl px-4 py-2.5 ${
+              mode === "generate"
+                ? "bg-green-500/20 border-green-500/40"
+                : "bg-green-500/20 border-green-500/40"
+            }`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
           >
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
-            <p className="text-green-300 text-[12px] font-semibold">QR detected</p>
+            <p className="text-green-300 text-[12px] font-semibold">
+              {mode === "generate" ? "Payment confirmed" : "QR detected"}
+            </p>
           </motion.div>
 
-          {/* Review sheet */}
           <motion.div
             className="bg-white rounded-t-[24px] p-5 space-y-4"
             initial={{ y: 400 }}
@@ -502,17 +636,17 @@ function AddExpenseModal({
           >
             <div className="w-10 h-1 bg-nets-border rounded-full mx-auto" />
 
-            {/* Merchant detected */}
             <div className="flex items-center gap-3 bg-nets-gray-bg rounded-xl p-3">
               <div className="w-11 h-11 rounded-xl bg-white border border-nets-border flex items-center justify-center text-2xl shrink-0">
-                {detected.current.icon}
+                {mode === "generate" ? "📲" : detected.current.icon}
               </div>
               <div className="flex-1 min-w-0">
                 {showManual ? (
                   <input
                     className="w-full text-[14px] font-semibold text-nets-text bg-transparent focus:outline-none border-b border-nets-border"
                     value={manualDesc} onChange={(e) => setManualDesc(e.target.value)}
-                    placeholder="What was this for?" autoFocus
+                    placeholder={mode === "generate" ? "What's this expense for?" : "What was this for?"}
+                    autoFocus
                   />
                 ) : (
                   <>
@@ -523,7 +657,6 @@ function AddExpenseModal({
               </div>
             </div>
 
-            {/* Amount (editable) */}
             <div>
               <p className="text-[11px] font-semibold text-nets-muted uppercase tracking-wider mb-1.5">Total amount</p>
               <div className="relative">
@@ -536,7 +669,6 @@ function AddExpenseModal({
               </div>
             </div>
 
-            {/* Who paid */}
             <div>
               <p className="text-[11px] font-semibold text-nets-muted uppercase tracking-wider mb-2">Who paid?</p>
               <div className="flex gap-2 flex-wrap">
@@ -552,15 +684,12 @@ function AddExpenseModal({
               </div>
             </div>
 
-            {/* Split preview */}
             {members.length > 0 && parseFloat(amount) > 0 && (
               <div className="bg-blue-50 rounded-xl px-4 py-3 flex items-center justify-between">
                 <p className="text-[12px] text-nets-blue font-medium">
                   Split equally × {members.length} members
                 </p>
-                <p className="text-[13px] font-bold text-nets-navy">
-                  S${perMember.toFixed(2)} each
-                </p>
+                <p className="text-[13px] font-bold text-nets-navy">S${perMember.toFixed(2)} each</p>
               </div>
             )}
 
@@ -595,7 +724,7 @@ function AddExpenseModal({
             {step === "saving" ? (
               <>
                 <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
-                  <div className="w-8 h-8 border-3 border-nets-navy border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
+                  <div className="w-8 h-8 border-nets-navy border-t-transparent rounded-full animate-spin" style={{ borderWidth: 3 }} />
                 </div>
                 <p className="text-[15px] font-bold text-nets-text">Adding expense…</p>
               </>
