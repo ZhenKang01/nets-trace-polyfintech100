@@ -107,6 +107,21 @@ def init_db():
             FOREIGN KEY (pool_id) REFERENCES user_pools(id),
             FOREIGN KEY (member_id) REFERENCES pool_members(id)
         );
+
+        CREATE TABLE IF NOT EXISTS trips (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            country TEXT NOT NULL,
+            currency TEXT NOT NULL DEFAULT 'SGD',
+            symbol TEXT NOT NULL DEFAULT 'S$',
+            flag TEXT NOT NULL DEFAULT '🌏',
+            fx_rate REAL NOT NULL DEFAULT 1.0,
+            networks TEXT NOT NULL DEFAULT '[]',
+            started_at TEXT NOT NULL,
+            ended_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        );
     """)
     conn.commit()
     conn.close()

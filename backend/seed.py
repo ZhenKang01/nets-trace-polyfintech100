@@ -340,6 +340,7 @@ def seed():
 
     conn.commit()
     seed_pools(conn)
+    seed_trips(conn)
     conn.close()
     print("Seeding complete.")
 
@@ -475,6 +476,26 @@ def seed_pools(conn):
     _insert_expense(c, "exp-bbt-3", POOL_BBT, M_BBT_JOR, 31.00, "The Alley + Share Tea", "equal",
                     "2026-06-21", {M_BBT_JOR: 10.33, M_BBT_MEI: 10.33, M_BBT_PRI: 10.34})
 
+    conn.commit()
+
+
+def seed_trips(conn):
+    """Seed Sam's active JB trip — started 2026-06-18 when inject_current_jb_trip txns begin."""
+    c = conn.cursor()
+    if c.execute("SELECT COUNT(*) FROM trips").fetchone()[0] > 0:
+        return
+    import json
+    c.execute(
+        """INSERT INTO trips
+           (id, user_id, destination, country, currency, symbol, flag, fx_rate, networks, started_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?)""",
+        (
+            "trip-sam-jb-001", "u3",
+            "Johor Bahru", "Malaysia", "MYR", "RM", "🇲🇾", 3.42,
+            json.dumps(["DuitNow", "MyDebit"]),
+            "2026-06-18T09:00:00Z",
+        ),
+    )
     conn.commit()
 
 

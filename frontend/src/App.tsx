@@ -1,6 +1,8 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { UserProvider } from "./context/UserContext";
+import { TripProvider } from "./context/TripContext";
 import { NetsTabBar } from "./components/NetsTabBar";
+import { RoamActivationOverlay } from "./components/RoamActivationOverlay";
 import { HomeScreen } from "./screens/HomeScreen";
 import { HistoryScreen } from "./screens/HistoryScreen";
 import { WrappedScreen } from "./screens/WrappedScreen";
@@ -38,6 +40,8 @@ function PhoneShell() {
           </Routes>
         </div>
         <NetsTabBar />
+        {/* Overlay renders on top of everything, inside the phone screen */}
+        <RoamActivationOverlay />
       </div>
     </div>
   );
@@ -47,12 +51,14 @@ export default function App() {
   return (
     <UserProvider>
       <BrowserRouter>
-        <div
-          className="flex items-center justify-center min-h-screen"
-          style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)" }}
-        >
-          <PhoneShell />
-        </div>
+        <TripProvider>
+          <div
+            className="flex items-center justify-center min-h-screen"
+            style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)" }}
+          >
+            <PhoneShell />
+          </div>
+        </TripProvider>
       </BrowserRouter>
     </UserProvider>
   );
