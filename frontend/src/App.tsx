@@ -13,6 +13,7 @@ import { RoamScreen } from "./screens/RoamScreen";
 import { PoolsScreen } from "./screens/PoolsScreen";
 import { PoolDetailScreen } from "./screens/PoolDetailScreen";
 import { JoinPreviewScreen } from "./screens/JoinPreviewScreen";
+import { PayNowScreen } from "./screens/PayNowScreen";
 
 // Auth gate rendered inside the phone screen
 function PhoneContent() {
@@ -39,6 +40,7 @@ function PhoneContent() {
               <Route path="/pools" element={<PoolsScreen />} />
               <Route path="/pools/:poolId" element={<PoolDetailScreen />} />
               <Route path="/join/:code" element={<JoinPreviewScreen />} />
+              <Route path="/paynow" element={<PayNowScreen />} />
             </Routes>
           </div>
           <NetsTabBar />
