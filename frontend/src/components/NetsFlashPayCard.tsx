@@ -1,8 +1,10 @@
-import { useUser, USER_PROFILES } from "../context/UserContext";
+import { useUser } from "../context/UserContext";
+
+const fmt = (n: number) =>
+  n.toLocaleString("en-SG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function NetsFlashPayCard() {
-  const { userId } = useUser();
-  const profile = USER_PROFILES[userId];
+  const { balance } = useUser();
 
   return (
     <div
@@ -25,7 +27,7 @@ export function NetsFlashPayCard() {
         <div>
           <p className="text-[11px] font-medium opacity-70 uppercase tracking-wider">FlashPay</p>
           <p className="text-[22px] font-bold mt-0.5">
-            SGD {profile.balance.toFixed(2)}
+            SGD {fmt(balance)}
           </p>
         </div>
         <div className="bg-white/20 rounded-full p-1.5">

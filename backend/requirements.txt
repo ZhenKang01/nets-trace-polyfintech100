@@ -1,2 +1,7 @@
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
+
+# Face authentication — pixel-variance demo mode (always active)
+# Add  tensorflow-cpu>=2.14  to enable real Teachable Machine model inference
+Pillow>=10.0.0
+numpy>=1.26.0,<2.0

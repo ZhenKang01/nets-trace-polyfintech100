@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { TransactionAuthModal } from "../components/TransactionAuthModal";
 
 type PayStep = "input" | "review" | "processing" | "success";
 type PayMode = "phone" | "scan";
@@ -42,6 +43,7 @@ export function PayNowScreen() {
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [selectedContact, setSelectedContact] = useState<typeof RECENT_CONTACTS[0] | null>(null);
+  const [showAuth, setShowAuth] = useState(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scannedRecipient = { name: "Maxwell Food Centre", uen: "UEN 201234567K", initials: "MF", color: "#7C3AED" };
@@ -474,7 +476,7 @@ export function PayNowScreen() {
             exit={{ y: 20, opacity: 0 }}
           >
             <button
-              onClick={handlePay}
+              onClick={() => setShowAuth(true)}
               disabled={!canPay}
               className="w-full rounded-2xl py-3.5 text-[15px] font-semibold text-white disabled:opacity-35 active:opacity-80 transition-opacity"
               style={{ background: "linear-gradient(135deg, #7B44F2, #3B82F6)" }}
@@ -482,6 +484,18 @@ export function PayNowScreen() {
               Pay S${amt > 0 ? amt.toFixed(2) : "0.00"} via PayNow
             </button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Transaction auth gate */}
+      <AnimatePresence>
+        {showAuth && (
+          <TransactionAuthModal
+            amount={amt}
+            label={`to ${recipientName}`}
+            onSuccess={() => { setShowAuth(false); handlePay(); }}
+            onCancel={() => setShowAuth(false)}
+          />
         )}
       </AnimatePresence>
     </div>

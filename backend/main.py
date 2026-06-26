@@ -8,6 +8,7 @@ from routes.pools import router as pools_router
 from routes.roam import router as roam_router
 from routes.user_pools import router as user_pools_router
 from routes.roam_trips import router as roam_trips_router
+from routes.face_auth import router as face_auth_router
 
 app = FastAPI(title="NETS Trace API", version="2.0.0")
 
@@ -31,6 +32,7 @@ app.include_router(pools_router, tags=["pools"])
 app.include_router(roam_router, tags=["roam"])
 app.include_router(user_pools_router, tags=["user-pools"])
 app.include_router(roam_trips_router, tags=["roam-trips"])
+app.include_router(face_auth_router, tags=["auth"])
 
 
 @app.get("/health")

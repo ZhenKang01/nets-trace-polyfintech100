@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { NetsHeader } from "../components/NetsHeader";
 import { NetsCard } from "../components/NetsCard";
+import { TransactionAuthModal } from "../components/TransactionAuthModal";
 
 // ── Demo data ─────────────────────────────────────────────────────────────────
 
@@ -384,6 +385,7 @@ function AddExpenseModal({
   const [payerId, setPayerId] = useState(members.find((m) => m.is_self)?.id ?? members[0]?.id ?? "");
   const [manualDesc, setManualDesc] = useState("");
   const [showManual, setShowManual] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-advance only in scan mode
@@ -694,7 +696,7 @@ function AddExpenseModal({
             )}
 
             <button
-              onClick={submit}
+              onClick={() => { if ((parseFloat(amount) || 0) > 0) setShowAuth(true); }}
               disabled={!amount || parseFloat(amount) <= 0}
               className="w-full bg-nets-navy text-white rounded-nets py-3.5 text-[15px] font-semibold disabled:opacity-40 flex items-center justify-center gap-2"
             >
@@ -703,6 +705,18 @@ function AddExpenseModal({
 
             <button onClick={onClose} className="w-full text-center text-[13px] text-nets-muted py-1">Cancel</button>
           </motion.div>
+
+          {/* Transaction auth gate */}
+          <AnimatePresence>
+            {showAuth && (
+              <TransactionAuthModal
+                amount={parseFloat(amount) || 0}
+                label={`split among ${members.length} members`}
+                onSuccess={() => { setShowAuth(false); submit(); }}
+                onCancel={() => setShowAuth(false)}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
 

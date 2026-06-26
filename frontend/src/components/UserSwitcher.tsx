@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUser, USER_PROFILES } from "../context/UserContext";
 import { useAuth } from "../context/AuthContext";
 import type { UserId } from "../context/UserContext";
@@ -13,6 +14,7 @@ const PERSONA_EMOJI: Record<UserId, string> = {
 export function UserSwitcher() {
   const { userId, setUserId } = useUser();
   const { logout } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   return (
@@ -52,6 +54,16 @@ export function UserSwitcher() {
                 </button>
               );
             })}
+            <button
+              onClick={() => { setOpen(false); navigate("/settings"); }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-nets-gray-bg transition-colors border-t border-nets-border"
+            >
+              <span className="text-lg">⚙️</span>
+              <div className="text-left">
+                <p className="text-[13px] font-semibold text-nets-text">Settings</p>
+                <p className="text-[11px] text-nets-muted">Privacy, security, preferences</p>
+              </div>
+            </button>
             <button
               onClick={() => { setOpen(false); logout(); }}
               className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-50 transition-colors border-t border-nets-border"
