@@ -112,10 +112,6 @@ function QRModal({ trip, onClose }: { trip: ActiveTrip; onClose: () => void }) {
 
 // ── Transaction row ───────────────────────────────────────────────────────────
 
-const CAT_ICON: Record<string, string> = {
-  "Food & Drink": "🍜", Transport: "🚇", Shopping: "🛍️", Groceries: "🛒", Entertainment: "🎬",
-};
-
 function TxnRow({ t, flag, isLast }: { t: TripTxn; flag: string; isLast: boolean }) {
   return (
     <div className={`flex items-center px-4 py-3 ${!isLast ? "border-b border-nets-border" : ""}`}>
@@ -263,7 +259,7 @@ function IdleState() {
 
   const handleInject = async () => {
     setInjecting(true);
-    await injectForeignTxn("Bangkok");
+    await injectForeignTxn("Johor Bahru");
     setInjecting(false);
   };
 
@@ -312,7 +308,7 @@ function IdleState() {
       >
         {injecting
           ? <div className="w-4 h-4 border-2 border-nets-muted border-t-transparent rounded-full animate-spin" />
-          : "✈️ Demo: tap abroad in Bangkok"}
+          : "✈️ Demo: tap abroad in Johor Bahru"}
       </button>
     </div>
   );

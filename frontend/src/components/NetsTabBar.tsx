@@ -12,17 +12,6 @@ const TABS = [
     ),
   },
   {
-    id: "paynow",
-    label: "PayNow",
-    path: "/paynow",
-    icon: (active: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="9" stroke={active ? "#7B44F2" : "currentColor"} />
-        <path d="M8 12h8M13 8.5l3.5 3.5L13 15.5" stroke={active ? "#7B44F2" : "currentColor"} />
-      </svg>
-    ),
-  },
-  {
     id: "wrapped",
     label: "Wrapped",
     path: "/wrapped",
@@ -83,13 +72,13 @@ export function NetsTabBar() {
             key={tab.id}
             onClick={() => navigate(tab.path)}
             className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors ${
-              active && tab.id === "paynow" ? "text-violet-600" : active ? "text-nets-navy" : "text-nets-muted"
+              active ? "text-nets-navy" : "text-nets-muted"
             }`}
           >
             {tab.icon(active)}
             <span
               className={`text-[9px] font-medium leading-none ${
-                active && tab.id === "paynow" ? "text-violet-600" : active ? "text-nets-navy" : "text-nets-muted"
+                active ? "text-nets-navy" : "text-nets-muted"
               }`}
             >
               {tab.label}

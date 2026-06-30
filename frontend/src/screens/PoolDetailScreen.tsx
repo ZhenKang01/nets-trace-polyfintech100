@@ -134,7 +134,7 @@ function AddFundsModal({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex flex-col justify-end"
+      className="absolute inset-0 z-[60] flex flex-col justify-end overflow-y-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -435,7 +435,7 @@ function AddExpenseModal({
       {step === "scan" && (
         <motion.div
           key="scan"
-          className="absolute inset-0 z-40 flex flex-col"
+          className="absolute inset-0 z-[60] flex flex-col overflow-y-auto"
           style={{ background: "linear-gradient(180deg, #050d1f 0%, #0d1e40 100%)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -474,7 +474,7 @@ function AddExpenseModal({
           {mode === "scan" && (
             <>
               <p className="text-white/50 text-[12px] text-center mb-8">
-                Point at any PayNow or NETS QR code
+                Point at any NETS QR code
               </p>
               <div className="flex-1 flex items-center justify-center">
                 <ScannerFrame />
@@ -592,7 +592,7 @@ function AddExpenseModal({
       {step === "review" && (
         <motion.div
           key="review"
-          className="absolute inset-0 z-40 flex flex-col justify-end"
+          className="absolute inset-0 z-[60] flex flex-col justify-end overflow-y-auto"
           style={{ background: "linear-gradient(180deg, #050d1f 0%, rgba(13,30,64,0.92) 100%)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -724,7 +724,7 @@ function AddExpenseModal({
       {(step === "saving" || step === "success") && (
         <motion.div
           key="done"
-          className="absolute inset-0 z-40 flex flex-col items-center justify-center"
+          className="absolute inset-0 z-[60] flex flex-col items-center justify-center"
           style={{ background: "rgba(0,0,0,0.6)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -805,7 +805,7 @@ function SettleModal({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex items-end"
+      className="absolute inset-0 z-[60] flex items-end"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -867,7 +867,7 @@ function InviteQRModal({
 
   return (
     <motion.div
-      className="absolute inset-0 z-40 flex flex-col justify-end"
+      className="absolute inset-0 z-[60] flex flex-col justify-end overflow-y-auto"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

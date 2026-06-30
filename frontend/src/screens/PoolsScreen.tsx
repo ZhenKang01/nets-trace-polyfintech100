@@ -256,7 +256,7 @@ function CreatePoolOverlay({
 
   return (
     <motion.div
-      className="absolute inset-0 z-50 flex flex-col"
+      className="absolute inset-0 z-[60] flex flex-col overflow-y-auto pb-[96px]"
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
