@@ -39,6 +39,7 @@ function MockQRCode({ size = 168 }: { size?: number }) {
 // ── QR Modal ─────────────────────────────────────────────────────────────────
 
 function QRModal({ trip, onClose }: { trip: ActiveTrip; onClose: () => void }) {
+  const [mode, setMode] = useState<"show" | "scan">("show");
   const [seconds, setSeconds] = useState(300);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
@@ -49,63 +50,132 @@ function QRModal({ trip, onClose }: { trip: ActiveTrip; onClose: () => void }) {
   const ss = String(seconds % 60).padStart(2, "0");
   const lastTxn = trip.recent_txns[0];
 
+  const handleSimulateScan = () => {
+    onClose();
+  };
+
   return (
     <motion.div
       className="absolute inset-0 z-[60] flex flex-col"
-      style={{ background: "linear-gradient(160deg, #050d1f 0%, #1B3464 60%, #0a2240 100%)" }}
+      style={{ background: mode === "show" ? "linear-gradient(160deg, #050d1f 0%, #1B3464 60%, #0a2240 100%)" : "#000000" }}
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
       exit={{ y: "100%" }}
       transition={{ type: "spring", stiffness: 320, damping: 34 }}
     >
-      <button className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center" onClick={onClose}>
+      <button className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center" onClick={onClose}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
           <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6 pt-10">
-        <div className="flex gap-2 mb-5">
-          {trip.networks.map((n) => (
-            <div key={n} className="bg-white/10 border border-white/20 rounded-full px-3 py-1">
-              <span className="text-white text-[12px] font-semibold">{n}</span>
-            </div>
-          ))}
-        </div>
-        <div className="bg-white rounded-2xl p-4 shadow-2xl flex flex-col items-center gap-3">
-          <MockQRCode size={168} />
-          <div className="w-full border-t border-gray-100 pt-3 flex items-center justify-between">
-            <div>
-              <p className="text-[11px] text-gray-400 font-medium">Amount</p>
-              <p className="text-[17px] font-bold text-[#1B3464]">
-                {lastTxn ? `${trip.symbol} ${lastTxn.local_amount.toFixed(2)}` : `${trip.symbol} —`}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-[11px] text-gray-400 font-medium">≈ SGD</p>
-              <p className="text-[17px] font-bold text-[#1B3464]">
-                {lastTxn ? `S$${lastTxn.amount.toFixed(2)}` : "S$ —"}
-              </p>
-            </div>
-          </div>
-          <div className="w-full flex items-center justify-center gap-1.5 pt-1 border-t border-gray-100">
-            <span className="text-[10px] text-gray-400">Powered by</span>
-            <span className="text-[13px] font-black text-[#E31837] tracking-tight">NETS</span>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-white/70 text-[13px]">
-            QR expires in <span className="text-white font-semibold tabular-nums">{mm}:{ss}</span>
-          </span>
+      {/* Toggle */}
+      <div className="absolute top-5 left-0 right-0 flex justify-center z-20">
+        <div className="bg-white/20 p-1 rounded-full flex gap-1 backdrop-blur-md">
+          <button
+            onClick={() => setMode("show")}
+            className={`px-4 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+              mode === "show" ? "bg-white text-[#1B3464] shadow-sm" : "text-white"
+            }`}
+          >
+            Show QR
+          </button>
+          <button
+            onClick={() => setMode("scan")}
+            className={`px-4 py-1.5 rounded-full text-[13px] font-semibold transition-colors ${
+              mode === "scan" ? "bg-white text-[#1B3464] shadow-sm" : "text-white"
+            }`}
+          >
+            Scan QR
+          </button>
         </div>
       </div>
-      <div className="pb-10 px-6 text-center">
-        <p className="text-white/50 text-[12px] leading-snug">
-          Show this QR at the merchant's terminal.{"\n"}
-          Deducted directly from your linked bank — no top-up, no leftover balance.
-        </p>
-      </div>
+
+      {mode === "show" ? (
+        <>
+          <div className="flex-1 flex flex-col items-center justify-center px-6 pt-10">
+            <div className="flex gap-2 mb-5">
+              {trip.networks.map((n) => (
+                <div key={n} className="bg-white/10 border border-white/20 rounded-full px-3 py-1">
+                  <span className="text-white text-[12px] font-semibold">{n}</span>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white rounded-2xl p-4 shadow-2xl flex flex-col items-center gap-3">
+              <MockQRCode size={168} />
+              <div className="w-full border-t border-gray-100 pt-3 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] text-gray-400 font-medium">Amount</p>
+                  <p className="text-[17px] font-bold text-[#1B3464]">
+                    {lastTxn ? `${trip.symbol} ${lastTxn.local_amount.toFixed(2)}` : `${trip.symbol} —`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-gray-400 font-medium">≈ SGD</p>
+                  <p className="text-[17px] font-bold text-[#1B3464]">
+                    {lastTxn ? `S$${lastTxn.amount.toFixed(2)}` : "S$ —"}
+                  </p>
+                </div>
+              </div>
+              <div className="w-full flex items-center justify-center gap-1.5 pt-1 border-t border-gray-100">
+                <span className="text-[10px] text-gray-400">Powered by</span>
+                <span className="text-[13px] font-black text-[#E31837] tracking-tight">NETS</span>
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-white/70 text-[13px]">
+                QR expires in <span className="text-white font-semibold tabular-nums">{mm}:{ss}</span>
+              </span>
+            </div>
+          </div>
+          <div className="pb-10 px-6 text-center">
+            <p className="text-white/50 text-[12px] leading-snug">
+              Show this QR at the merchant's terminal.{"\n"}
+              Deducted directly from your linked bank — no top-up, no leftover balance.
+            </p>
+          </div>
+        </>
+      ) : (
+        <div className="flex-1 relative flex flex-col items-center justify-center">
+          {/* Mock Camera Background Overlay */}
+          <div className="absolute inset-0 bg-[#0f1115] flex flex-col">
+            <div className="flex-1 bg-black/40 backdrop-blur-[2px]" />
+            <div className="flex justify-center">
+              <div className="w-12 bg-black/40 backdrop-blur-[2px]" />
+              {/* Cutout area */}
+              <div className="w-[260px] h-[260px] border border-white/20 relative overflow-hidden flex-shrink-0 bg-transparent">
+                {/* Corner markers */}
+                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-400 rounded-tl-lg" />
+                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-400 rounded-tr-lg" />
+                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-400 rounded-bl-lg" />
+                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-400 rounded-br-lg" />
+                
+                {/* Scanning line animation */}
+                <motion.div
+                  className="w-full h-[2px] bg-green-400 shadow-[0_0_12px_#4ade80]"
+                  animate={{ y: [0, 256, 0] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "linear" }}
+                />
+              </div>
+              <div className="w-12 bg-black/40 backdrop-blur-[2px]" />
+            </div>
+            <div className="flex-1 bg-black/40 backdrop-blur-[2px]" />
+          </div>
+          
+          {/* Content layered over camera view */}
+          <div className="absolute top-32 text-center w-full px-6 z-10">
+             <p className="text-white font-bold text-[17px] mb-1">Scan Merchant QR</p>
+             <p className="text-white/70 text-[13px]">Align the QR code within the frame</p>
+          </div>
+
+          <div className="absolute bottom-[72px] w-full px-8 z-10">
+            <NetsButton onClick={handleSimulateScan}>
+               Simulate Scan
+            </NetsButton>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
